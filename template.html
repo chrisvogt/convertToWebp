@@ -1,20 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Image Conversion Results</title>
-  <style>
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border: 1px solid black; padding: 8px; text-align: center; }
-    img { max-width: 100%; height: auto; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversion Results</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body>
-  <h1>Image Conversion Results</h1>
-  <table>
-    <tr><th>Original</th><th>Converted</th></tr>
-<!-- Content Placeholder -->
-  </table>
+<body class="bg-gray-100 text-gray-800">
+    <header class="bg-blue-600 text-white p-4">
+        <div class="container mx-auto">
+            <h1 class="text-3xl font-bold">convertToWebp</h1>
+        </div>
+    </header>
+    <main class="container mx-auto p-4">
+        <h2 class="text-2xl font-bold mb-4">Conversion Results</h2>
+        <table class="table-auto w-full bg-white shadow-md rounded-lg">
+            <thead>
+                <tr class="bg-gray-200">
+                    <th class="px-4 py-2">Original Image</th>
+                    <th class="px-4 py-2">Converted Image</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Content Placeholder -->
+            </tbody>
+        </table>
+        <p class="mt-4">
+            <!-- Completion message will be inserted here -->
+        </p>
+    </main>
+    <footer class="bg-gray-800 text-white p-4 mt-8">
+        <div class="container mx-auto text-center">
+            <p>Project by <a href="https://www.chrisvogt.me" class="underline">Christopher Vogt</a></p>
+            <p>View on <a href="https://github.com/chrisvogt" class="underline">GitHub</a></p>
+        </div>
+    </footer>
 </body>
 </html>

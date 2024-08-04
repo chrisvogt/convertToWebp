@@ -82,8 +82,8 @@ regenerate_main_index() {
   main_index_file="index.html"
   echo "<!DOCTYPE html>" > "$main_index_file"
   echo "<html lang=\"en\">" >> "$main_index_file"
-  echo "<head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Conversion Results</title></head>" >> "$main_index_file"
-  echo "<body><h1>Conversion Results</h1><ul>" >> "$main_index_file"
+  echo "<head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Conversion Results</title><link href=\"https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css\" rel=\"stylesheet\"></head>" >> "$main_index_file"
+  echo "<body class=\"bg-gray-100 text-gray-800\"><header class=\"bg-blue-600 text-white p-4\"><div class=\"container mx-auto\"><h1 class=\"text-3xl font-bold\">convertToWebp</h1></div></header><main class=\"container mx-auto p-4\"><h2 class=\"text-2xl font-bold mb-4\">Conversion Results</h2><div class=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6\">" >> "$main_index_file"
   
   # Check for existing directories to avoid duplicates
   existing_dirs=()
@@ -91,16 +91,25 @@ regenerate_main_index() {
     existing_dirs+=("$dir")
   done < <(find . -maxdepth 1 -type d -name "conversion_q*" -print0)
   
-  # Add links to the main index file
+  # Add cards to the main index file
   for dir in "${existing_dirs[@]}"; do
     if [ -f "$dir/conversion.log" ]; then
       link_name=$(basename "$dir")
-      echo "<li><a href=\"$link_name/index.html\">$link_name</a></li>" >> "$main_index_file"
+      # Read the first few lines of the log file to get the settings
+      quality_line=$(sed -n '1p' "$dir/conversion.log")
+      lossless_line=$(sed -n '2p' "$dir/conversion.log")
+      additional_line=$(sed -n '3p' "$dir/conversion.log")
+      quality="${quality_line#Quality: }"
+      lossless="${lossless_line#Lossless: }"
+      additional="${additional_line#Additional cwebp options: }"
+      
+      # Create a card for each conversion directory
+      echo "<div class=\"bg-white shadow-md rounded-lg overflow-hidden\"><div class=\"p-4\"><h2 class=\"text-xl font-bold\"><a href=\"$link_name/index.html\">$link_name</a></h2><p>Quality: $quality</p><p>Lossless: $lossless</p><p>Additional options: $additional</p></div></div>" >> "$main_index_file"
     fi
   done
   
-  # Close the ul and body tags
-  echo "</ul></body></html>" >> "$main_index_file"
+  # Close the div, main, footer and body tags
+  echo "</div></main><footer class=\"bg-gray-800 text-white p-4 mt-8\"><div class=\"container mx-auto text-center\"><p>Project by <a href=\"https://www.chrisvogt.me\" class=\"underline\">Christopher Vogt</a></p><p>View on <a href=\"https://github.com/chrisvogt\" class=\"underline\">GitHub</a></p></div></footer></body></html>" >> "$main_index_file"
 }
 
 # Function to start the local web server
