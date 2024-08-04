@@ -42,6 +42,8 @@ preview="false"
 preview_only="false"
 extra_params=()
 template_file="$script_dir/template.html"
+header_file="$script_dir/header.html"
+footer_file="$script_dir/footer.html"
 server_pid=""
 
 # Parse command-line arguments for -q, -lossless, -preview, and -previewOnly
@@ -80,10 +82,19 @@ format_size() {
 # Function to regenerate the main index.html file
 regenerate_main_index() {
   main_index_file="index.html"
-  echo "<!DOCTYPE html>" > "$main_index_file"
-  echo "<html lang=\"en\">" >> "$main_index_file"
-  echo "<head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Conversion Results</title><link href=\"https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css\" rel=\"stylesheet\"></head>" >> "$main_index_file"
-  echo "<body class=\"bg-gray-100 text-gray-800\"><header class=\"bg-blue-600 text-white p-4\"><div class=\"container mx-auto\"><h1 class=\"text-3xl font-bold\">convertToWebp</h1></div></header><main class=\"container mx-auto p-4\"><h2 class=\"text-2xl font-bold mb-4\">Conversion Results</h2><div class=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6\">" >> "$main_index_file"
+  {
+    echo "<!DOCTYPE html>"
+    echo "<html lang=\"en\">"
+    echo "<head>"
+    echo "    <meta charset=\"UTF-8\">"
+    echo "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
+    echo "    <title>Conversion Results</title>"
+    echo "    <link href=\"https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css\" rel=\"stylesheet\">"
+    echo "</head>"
+    echo "<body class=\"bg-gray-100 text-gray-800\">"
+    cat "$header_file"
+    echo "<main class=\"container mx-auto p-4\"><h2 class=\"text-2xl font-bold mb-4\">Conversion Results</h2><div class=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6\">"
+  } > "$main_index_file"
   
   # Check for existing directories to avoid duplicates
   existing_dirs=()
@@ -98,18 +109,21 @@ regenerate_main_index() {
       # Read the first few lines of the log file to get the settings
       quality_line=$(sed -n '1p' "$dir/conversion.log")
       lossless_line=$(sed -n '2p' "$dir/conversion.log")
-      additional_line=$(sed -n '3p' "$dir/conversion.log")
       quality="${quality_line#Quality: }"
       lossless="${lossless_line#Lossless: }"
-      additional="${additional_line#Additional cwebp options: }"
       
       # Create a card for each conversion directory
-      echo "<div class=\"bg-white shadow-md rounded-lg overflow-hidden\"><div class=\"p-4\"><h2 class=\"text-xl font-bold\"><a href=\"$link_name/index.html\">$link_name</a></h2><p>Quality: $quality</p><p>Lossless: $lossless</p><p>Additional options: $additional</p></div></div>" >> "$main_index_file"
+      echo "<div class=\"bg-white shadow-md rounded-lg overflow-hidden\"><div class=\"p-4\"><h2 class=\"text-xl font-bold\"><a href=\"$link_name/index.html\">$link_name</a></h2><p>Quality: $quality</p><p>Lossless: $lossless</p></div></div>" >> "$main_index_file"
     fi
   done
   
-  # Close the div, main, footer and body tags
-  echo "</div></main><footer class=\"bg-gray-800 text-white p-4 mt-8\"><div class=\"container mx-auto text-center\"><p>Project by <a href=\"https://www.chrisvogt.me\" class=\"underline\">Christopher Vogt</a></p><p>View on <a href=\"https://github.com/chrisvogt\" class=\"underline\">GitHub</a></p></div></footer></body></html>" >> "$main_index_file"
+  # Close the div, main and add footer
+  {
+    echo "</div></main>"
+    cat "$footer_file"
+    echo "</body>"
+    echo "</html>"
+  } >> "$main_index_file"
 }
 
 # Function to start the local web server
@@ -167,7 +181,9 @@ logfile="$output_dir/conversion.log"
 
 # Initialize HTML file by copying the template
 htmlfile="$output_dir/index.html"
-cp "$template_file" "$htmlfile"
+{
+  sed '/<!-- Header Placeholder -->/r '"$header_file" "$template_file" | sed '/<!-- Footer Placeholder -->/r '"$footer_file" > "$htmlfile"
+}
 
 # Function to display loading indicator
 show_loading() {
@@ -240,7 +256,7 @@ for file in *; do
     echo "$log_entry"
 
     # Prepare the HTML entry for insertion with file sizes
-    html_entry="<tr><td><img src=\"../$file\" alt=\"$file\"><br><small>Original: $original_size_kb KB</small></td><td><img src=\"${output#$output_dir/}\" alt=\"${file%.*}.webp\"><br><small>Converted: $output_size_kb KB</small></td></tr>"
+    html_entry="<tr><td><img src=\"../$file\" alt=\"$file\"><small>Original: $original_size_kb KB</small></td><td><img src=\"${output#$output_dir/}\" alt=\"${file%.*}.webp\"><small>Converted: $output_size_kb KB</small></td></tr>"
 
     # Add entry to HTML file
     sed -i '' '/<!-- Content Placeholder -->/ i\
