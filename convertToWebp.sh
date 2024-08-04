@@ -41,9 +41,12 @@ lossless="false"
 preview="false"
 preview_only="false"
 extra_params=()
+common_head_file="$script_dir/common_head.html"
+common_tail_file="$script_dir/common_tail.html"
 template_file="$script_dir/template.html"
 header_file="$script_dir/header.html"
 footer_file="$script_dir/footer.html"
+favicon_file="$script_dir/favicon.webp"
 server_pid=""
 
 # Parse command-line arguments for -q, -lossless, -preview, and -previewOnly
@@ -83,15 +86,7 @@ format_size() {
 regenerate_main_index() {
   main_index_file="index.html"
   {
-    echo "<!DOCTYPE html>"
-    echo "<html lang=\"en\">"
-    echo "<head>"
-    echo "    <meta charset=\"UTF-8\">"
-    echo "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
-    echo "    <title>Conversion Results</title>"
-    echo "    <link href=\"https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css\" rel=\"stylesheet\">"
-    echo "</head>"
-    echo "<body class=\"bg-gray-100 text-gray-800\">"
+    sed "s|<!-- FAVICON_PLACEHOLDER -->|<link rel=\"icon\" type=\"image/webp\" href=\"$favicon_file\">|g" "$common_head_file"
     cat "$header_file"
     echo "<main class=\"container mx-auto p-4\"><h2 class=\"text-2xl font-bold mb-4\">Conversion Results</h2><div class=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6\">"
   } > "$main_index_file"
@@ -121,8 +116,7 @@ regenerate_main_index() {
   {
     echo "</div></main>"
     cat "$footer_file"
-    echo "</body>"
-    echo "</html>"
+    cat "$common_tail_file"
   } >> "$main_index_file"
 }
 
@@ -182,8 +176,10 @@ logfile="$output_dir/conversion.log"
 # Initialize HTML file by copying the template
 htmlfile="$output_dir/index.html"
 {
-  sed '/<!-- Header Placeholder -->/r '"$header_file" "$template_file" | sed '/<!-- Footer Placeholder -->/r '"$footer_file" > "$htmlfile"
-}
+  sed "s|<!-- FAVICON_PLACEHOLDER -->|<link rel=\"icon\" type=\"image/webp\" href=\"$favicon_file\">|g" "$common_head_file"
+  sed '/<!-- Header Placeholder -->/r '"$header_file" "$template_file" | sed '/<!-- Footer Placeholder -->/r '"$footer_file"
+  cat "$common_tail_file"
+} > "$htmlfile"
 
 # Function to display loading indicator
 show_loading() {
@@ -233,9 +229,11 @@ for file in *; do
     original_size=$(stat -f %z "$file")
 
     # Build the cwebp command
-    cwebp_cmd=("cwebp" "-q" "$quality")
+    cwebp_cmd=("cwebp")
+    cwebp_cmd+=("-q" "$quality")
     [ "$lossless" == "true" ] && cwebp_cmd+=("-lossless")
-    cwebp_cmd+=("${extra_params[@]}" "$file" "-o" "$output")
+    cwebp_cmd+=("${extra_params[@]}")
+    cwebp_cmd+=("$file" "-o" "$output")
 
     # Convert file to webp with the specified quality and any additional options
     ("${cwebp_cmd[@]}" >> "$logfile" 2>&1) & show_loading
