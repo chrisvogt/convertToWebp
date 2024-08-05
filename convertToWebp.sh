@@ -48,7 +48,7 @@ template_file="$templates_dir/template.html"
 header_file="$templates_dir/header.html"
 footer_file="$templates_dir/footer.html"
 card_template_file="$templates_dir/card_template.html"
-favicon_file="$script_dir/favicon.webp"
+favicon_file="favicon.webp" # Changed to relative path
 
 # Parse command-line arguments
 while [[ "$1" =~ ^- ]]; do
@@ -117,16 +117,25 @@ regenerate_main_index() {
             total_filesize_saved="${filesize_saved_line#Total filesize saved: }"
             total_time="${time_line#Total time: }"
             
-#            echo "Debug: quality=$quality, lossless=$lossless, total_filesize_saved=$total_filesize_saved, total_time=$total_time"
-            
             # Create a card for each conversion directory using the template
             card_content=$(<"$card_template_file")
-            card_content=$(echo "$card_content" | sed "s|<!-- LINK_PLACEHOLDER -->|$link_name/index.html|g")
-            card_content=$(echo "$card_content" | sed "s|<!-- LINK_NAME -->|$link_name|g")
-            card_content=$(echo "$card_content" | sed "s|<!-- QUALITY_PLACEHOLDER -->|$quality|g")
-            card_content=$(echo "$card_content" | sed "s|<!-- LOSSLESS_PLACEHOLDER -->|$lossless|g")
-            card_content=$(echo "$card_content" | sed "s|<!-- FILESIZE_SAVED_PLACEHOLDER -->|$total_filesize_saved|g")
-            card_content=$(echo "$card_content" | sed "s|<!-- TIME_PLACEHOLDER -->|$total_time|g")
+            
+            # Function to escape problematic characters for sed
+            escape_sed() {
+                echo "$1" | sed -e 's/[\/&]/\\&/g'
+            }
+
+            # Escape variables for sed
+            escaped_quality=$(escape_sed "$quality")
+            escaped_lossless=$(escape_sed "$lossless")
+
+            # Replace placeholders using different delimiter and escaped variables
+            card_content=$(echo "$card_content" | sed "s#<!-- LINK_PLACEHOLDER -->#${link_name}/index.html#g")
+            card_content=$(echo "$card_content" | sed "s#<!-- LINK_NAME -->#${link_name}#g")
+            card_content=$(echo "$card_content" | sed "s#<!-- QUALITY_PLACEHOLDER -->#${escaped_quality}#g")
+            card_content=$(echo "$card_content" | sed "s#<!-- LOSSLESS_PLACEHOLDER -->#${escaped_lossless}#g")
+            card_content=$(echo "$card_content" | sed "s#<!-- FILESIZE_SAVED_PLACEHOLDER -->#${total_filesize_saved}#g")
+            card_content=$(echo "$card_content" | sed "s#<!-- TIME_PLACEHOLDER -->#${total_time}#g")
             echo "$card_content" >> "$main_index_file"
         fi
     done
@@ -164,6 +173,13 @@ find_available_port() {
     done
 }
 
+# Detect operating system and set sed inline flag
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    SED_INLINE_FLAG="-i ''"
+else
+    SED_INLINE_FLAG="-i"
+fi
+
 # Handle previewOnly case
 if [ "$preview_only" == "true" ]; then
     start_local_server
@@ -187,7 +203,7 @@ show_loading() {
 cleanup() {
     echo "" >> "$logfile"
     echo "Conversion incomplete. Process was killed." >> "$logfile"
-    sed -i '' '/<!-- Content Placeholder -->/ i\
+    sed $SED_INLINE_FLAG '/<!-- Content Placeholder -->/ i\
     <p>Conversion incomplete. Process was killed.</p>
     ' "$htmlfile"
     echo ""
@@ -270,7 +286,7 @@ for file in *; do
         html_entry="<tr><td><a href=\"../$file\" target=\"_blank\"><img src=\"../$file\" alt=\"$file\"><small>Original: $original_size_kb KB</small></a></td><td><a href=\"${output#$output_dir/}\" target=\"_blank\"><img src=\"${output#$output_dir/}\" alt=\"${file%.*}.webp\"><small>Converted: $output_size_kb KB</small></a></td></tr>"
 
         # Add entry to HTML file
-        sed -i '' '/<!-- Content Placeholder -->/ i\
+        sed $SED_INLINE_FLAG '/<!-- Content Placeholder -->/ i\
         '"$html_entry"'
         ' "$htmlfile"
     fi
@@ -281,7 +297,7 @@ trap - SIGINT
 {
     echo "" >> "$logfile"
     echo "Conversion complete." >> "$logfile"
-    sed -i '' '/<!-- Content Placeholder -->/ i\
+    sed $SED_INLINE_FLAG '/<!-- Content Placeholder -->/ i\
     <p>Conversion complete.</p>
     ' "$htmlfile"
 }
