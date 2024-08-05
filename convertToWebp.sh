@@ -41,11 +41,13 @@ lossless="false"
 preview="false"
 preview_only="false"
 extra_params=()
-common_head_file="$script_dir/common_head.html"
-common_tail_file="$script_dir/common_tail.html"
-template_file="$script_dir/template.html"
-header_file="$script_dir/header.html"
-footer_file="$script_dir/footer.html"
+templates_dir="$script_dir/templates"
+common_head_file="$templates_dir/common_head.html"
+common_tail_file="$templates_dir/common_tail.html"
+template_file="$templates_dir/template.html"
+header_file="$templates_dir/header.html"
+footer_file="$templates_dir/footer.html"
+card_template_file="$templates_dir/card_template.html"
 favicon_file="$script_dir/favicon.webp"
 
 # Parse command-line arguments
@@ -105,14 +107,27 @@ regenerate_main_index() {
     for dir in "${existing_dirs[@]}"; do
         if [ -f "$dir/conversion.log" ]; then
             link_name=$(basename "$dir")
-            # Read the first few lines of the log file to get the settings
+            # Read the exact lines from the log file to get the settings
             quality_line=$(sed -n '1p' "$dir/conversion.log")
             lossless_line=$(sed -n '2p' "$dir/conversion.log")
+            filesize_saved_line=$(grep 'Total filesize saved:' "$dir/conversion.log")
+            time_line=$(grep 'Total time:' "$dir/conversion.log")
             quality="${quality_line#Quality: }"
             lossless="${lossless_line#Lossless: }"
+            total_filesize_saved="${filesize_saved_line#Total filesize saved: }"
+            total_time="${time_line#Total time: }"
             
-            # Create a card for each conversion directory
-            echo "<div class=\"bg-white shadow-md rounded-lg overflow-hidden\"><div class=\"p-4\"><h2 class=\"text-xl font-bold\"><a href=\"$link_name/index.html\">$link_name</a></h2><p>Quality: $quality</p><p>Lossless: $lossless</p></div></div>" >> "$main_index_file"
+#            echo "Debug: quality=$quality, lossless=$lossless, total_filesize_saved=$total_filesize_saved, total_time=$total_time"
+            
+            # Create a card for each conversion directory using the template
+            card_content=$(<"$card_template_file")
+            card_content=$(echo "$card_content" | sed "s|<!-- LINK_PLACEHOLDER -->|$link_name/index.html|g")
+            card_content=$(echo "$card_content" | sed "s|<!-- LINK_NAME -->|$link_name|g")
+            card_content=$(echo "$card_content" | sed "s|<!-- QUALITY_PLACEHOLDER -->|$quality|g")
+            card_content=$(echo "$card_content" | sed "s|<!-- LOSSLESS_PLACEHOLDER -->|$lossless|g")
+            card_content=$(echo "$card_content" | sed "s|<!-- FILESIZE_SAVED_PLACEHOLDER -->|$total_filesize_saved|g")
+            card_content=$(echo "$card_content" | sed "s|<!-- TIME_PLACEHOLDER -->|$total_time|g")
+            echo "$card_content" >> "$main_index_file"
         fi
     done
     
@@ -186,14 +201,13 @@ cleanup() {
 # Trap SIGINT
 trap cleanup SIGINT
 
-# Define the log file name
+# Start conversion
 logfile="$output_dir/conversion.log"
 
 # Clear the log file and write the parameters at the top
 {
     echo "Quality: $quality"
     echo "Lossless: $lossless"
-    echo "Additional cwebp options: ${extra_params[*]}"
     echo ""
 } > "$logfile"
 
@@ -204,6 +218,10 @@ htmlfile="$output_dir/index.html"
     sed '/<!-- Header Placeholder -->/r '"$header_file" "$template_file" | sed '/<!-- Footer Placeholder -->/r '"$footer_file"
     cat "$common_tail_file"
 } > "$htmlfile"
+
+start_time=$(date +%s)
+total_original_size=0
+total_converted_size=0
 
 # Start conversion
 for file in *; do
@@ -220,6 +238,7 @@ for file in *; do
 
         # Get original file size
         original_size=$(stat -f %z "$file")
+        total_original_size=$((total_original_size + original_size))
 
         # Build the cwebp command
         cwebp_cmd=("cwebp")
@@ -236,6 +255,7 @@ for file in *; do
 
         # Get output file size
         output_size=$(stat -f %z "$output")
+        total_converted_size=$((total_converted_size + output_size))
 
         # Format sizes as KB
         original_size_kb=$(format_size "$original_size")
@@ -247,7 +267,7 @@ for file in *; do
         echo "$log_entry"
 
         # Prepare the HTML entry for insertion with file sizes
-        html_entry="<tr><td><img src=\"../$file\" alt=\"$file\"><small>Original: $original_size_kb KB</small></td><td><img src=\"${output#$output_dir/}\" alt=\"${file%.*}.webp\"><small>Converted: $output_size_kb KB</small></td></tr>"
+        html_entry="<tr><td><a href=\"../$file\" target=\"_blank\"><img src=\"../$file\" alt=\"$file\"><small>Original: $original_size_kb KB</small></a></td><td><a href=\"${output#$output_dir/}\" target=\"_blank\"><img src=\"${output#$output_dir/}\" alt=\"${file%.*}.webp\"><small>Converted: $output_size_kb KB</small></a></td></tr>"
 
         # Add entry to HTML file
         sed -i '' '/<!-- Content Placeholder -->/ i\
@@ -265,6 +285,15 @@ trap - SIGINT
     <p>Conversion complete.</p>
     ' "$htmlfile"
 }
+
+end_time=$(date +%s)
+total_time=$((end_time - start_time))
+percent_saved=$(awk "BEGIN {print (1 - $total_converted_size / $total_original_size) * 100}")
+
+{
+    echo "Total filesize saved: $percent_saved%"
+    echo "Total time: $total_time seconds"
+} >> "$logfile"
 
 # Display the log file
 echo ""
